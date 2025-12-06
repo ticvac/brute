@@ -29,7 +29,7 @@ pub fn handle_solve_problem_message(node: &Node, message: &Message) {
     
     // Reset the stop flag before starting
     node.set_stop_flag(false);
-    node.transition_to_child_solving(problem);
+    node.transition_to_child_solving();
     
     // start solving...
     let node_clone = node.clone();

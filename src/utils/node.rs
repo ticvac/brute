@@ -7,16 +7,13 @@ use super::friend::{FriendType, Friend};
 #[derive(Debug, Clone)]
 pub enum ChildState {
     Connected,
-    Solving {
-        part: Problem,
-    }
+    Solving
 }
 
 #[derive(Debug, Clone)]
 pub enum LeaderState {
     WaitingForProblem,
     Solving {
-        problem: Problem,
         parts: Vec<PartOfAProblem>,
     }
 }
@@ -171,7 +168,6 @@ impl Node {
         let mut state = self.state.lock().unwrap();
         *state = NodeState::Leader {
             state: LeaderState::Solving {
-                problem,
                 parts: vec![problem_part],
             },
         };
@@ -181,7 +177,7 @@ impl Node {
         let mut state = self.state.lock().unwrap();
         if let NodeState::Leader { state: leader_state } = &mut *state {
             match leader_state {
-                LeaderState::Solving { problem: _, parts: leader_parts } => {
+                LeaderState::Solving { parts: leader_parts } => {
                     *leader_parts = parts;
                 },
                 _ => {
@@ -262,10 +258,10 @@ impl Node {
         Arc::clone(&self.stop_flag)
     }
 
-    pub fn transition_to_child_solving(&self, part: Problem) {
+    pub fn transition_to_child_solving(&self) {
         let mut state = self.state.lock().unwrap();
         if let NodeState::Child { state: child_state, .. } = &mut *state {
-            *child_state = ChildState::Solving { part };
+            *child_state = ChildState::Solving;
         } else {
             eprintln!("! Cannot transition to child solving: Node is not a Child.");
         }
