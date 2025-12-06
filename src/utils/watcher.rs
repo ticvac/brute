@@ -88,7 +88,7 @@ fn mark_child_part_as_not_distributed(node: &Node, friend_address: &str) {
         part.state = PartOfAProblemState::NotDistributed;
         
         let mut state = node.state.lock().unwrap();
-        if let NodeState::Leader { state: LeaderState::Solving { parts, .. } } = &mut *state {
+        if let NodeState::Leader { state: LeaderState::Solving { parts, .. }, .. } = &mut *state {
             update_state_of_parts(parts, &part);
             println!("[Watcher] Marked part [{} - {}] as NotDistributed", part.start, part.end);
         }

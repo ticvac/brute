@@ -1,16 +1,18 @@
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use crate::problem::{PartOfAProblem, Problem};
+use crate::utils::leader_snapshot::LeaderSnapshot;
+use serde::{Serialize, Deserialize};
 
 use super::friend::{FriendType, Friend};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ChildState {
     Connected,
     Solving
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum LeaderState {
     WaitingForProblem,
     Solving {
@@ -24,9 +26,11 @@ pub enum NodeState {
     Child {
         leader_address: String,
         state: ChildState,
+        backup_snapshot: Arc<Mutex<Option<LeaderSnapshot>>>,
     },
     Leader {
         state: LeaderState,
+        has_backup: Arc<Mutex<AtomicBool>>,
     },
 }
 
@@ -100,16 +104,20 @@ impl Node {
         matches!(*self.state.lock().unwrap(), NodeState::Leader { .. })
     }
 
+    pub fn is_child(&self) -> bool {
+        matches!(*self.state.lock().unwrap(), NodeState::Child { .. })
+    }
+
     pub fn is_leader_waiting_for_problem(&self) -> bool {
         match &*self.state.lock().unwrap() {
-            NodeState::Leader { state } => matches!(state, LeaderState::WaitingForProblem),
+            NodeState::Leader { state, .. } => matches!(state, LeaderState::WaitingForProblem),
             _ => false,
         }
     }
 
     pub fn is_leader_solving(&self) -> bool {
         match &*self.state.lock().unwrap() {
-            NodeState::Leader { state } => matches!(state, LeaderState::Solving { .. }),
+            NodeState::Leader { state, .. } => matches!(state, LeaderState::Solving { .. }),
             _ => false,
         }
     }
@@ -118,12 +126,13 @@ impl Node {
         let mut state = self.state.lock().unwrap();
         *state = NodeState::Leader {
             state: LeaderState::WaitingForProblem,
+            has_backup: Arc::new(Mutex::new(AtomicBool::new(false))),
         };
     }
 
     pub fn transition_leader_to_waiting(&self) {
         let mut state = self.state.lock().unwrap();
-        if let NodeState::Leader { state: leader_state } = &mut *state {
+        if let NodeState::Leader { state: leader_state, .. } = &mut *state {
             *leader_state = LeaderState::WaitingForProblem;
         } else {
             eprintln!("! Cannot transition to leader waiting: Node is not a Leader.");
@@ -136,6 +145,7 @@ impl Node {
         *state = NodeState::Child {
             leader_address,
             state: ChildState::Connected,
+            backup_snapshot: Arc::new(Mutex::new(None)),
         };
         let mut friends = self.friends.lock().unwrap();
         
@@ -170,12 +180,13 @@ impl Node {
             state: LeaderState::Solving {
                 parts: vec![problem_part],
             },
+            has_backup: Arc::new(Mutex::new(AtomicBool::new(false))),
         };
     }
 
     pub fn set_problem_parts(&self, parts: Vec<PartOfAProblem>) {
         let mut state = self.state.lock().unwrap();
-        if let NodeState::Leader { state: leader_state } = &mut *state {
+        if let NodeState::Leader { state: leader_state, .. } = &mut *state {
             match leader_state {
                 LeaderState::Solving { parts: leader_parts } => {
                     *leader_parts = parts;
@@ -292,7 +303,7 @@ impl Node {
                 // Update the problem parts in the leader state
                 drop(friends); // Release the lock before acquiring state lock
                 let mut state = self.state.lock().unwrap();
-                if let NodeState::Leader { state: LeaderState::Solving { parts, .. } } = &mut *state {
+                if let NodeState::Leader { state: LeaderState::Solving { parts, .. }, .. } = &mut *state {
                     update_state_of_parts(parts, &part);
                     println!("Marked part [{} - {}] as searched and not found from friend {}", part.start, part.end, friend_address);
                 } else {
@@ -303,6 +314,78 @@ impl Node {
             }
         } else {
             eprintln!("! Friend {} not found.", friend_address);
+        }
+    }
+
+    pub fn get_leader_state(&self) -> LeaderState {
+        let state = self.state.lock().unwrap();
+        if let NodeState::Leader { state: leader_state, .. } = &*state {
+            leader_state.clone()
+        } else {
+            eprintln!("! Cannot get leader state: Node is not a Leader.");
+            LeaderState::WaitingForProblem
+        }
+    }
+
+    pub fn get_children_friends(&self) -> Vec<Friend> {
+        let friends = self.friends.lock().unwrap();
+        friends.iter()
+            .filter(|f| matches!(f.friend_type, FriendType::Child { .. }))
+            .cloned()
+            .collect()
+    }
+
+    pub fn has_backup(&self) -> bool {
+        let state = self.state.lock().unwrap();
+        if let NodeState::Leader { has_backup, .. } = &*state {
+            has_backup.lock().unwrap().load(Ordering::SeqCst)
+        } else {
+            false
+        }
+    }
+
+    pub fn set_has_backup(&self, value: bool) {
+        let state = self.state.lock().unwrap();
+        if let NodeState::Leader { has_backup, .. } = &*state {
+            has_backup.lock().unwrap().store(value, Ordering::SeqCst);
+        }
+    }
+
+    pub fn set_backup_address(&self, address: String) {
+        let mut friends = self.friends.lock().unwrap();
+        for friend in friends.iter_mut() {
+            if friend.address == address {
+                friend.is_backup = true;
+            } else {
+                friend.is_backup = false;
+            }
+        }
+    }
+
+    pub fn get_backup_address(&self) -> Option<String> {
+        let friends = self.friends.lock().unwrap();
+        for friend in friends.iter() {
+            if friend.is_backup {
+                return Some(friend.address.clone());
+            }
+        }
+        None
+    }
+
+    pub fn update_backup_snapshot(&self, snapshot: LeaderSnapshot) {
+        let state = self.state.lock().unwrap();
+        if let NodeState::Child { backup_snapshot, .. } = &*state {
+            let mut backup = backup_snapshot.lock().unwrap();
+            // Only update if new snapshot timestamp is greater than the existing one
+            let should_update = match &*backup {
+                Some(existing) => snapshot.timestamp > existing.timestamp,
+                None => true,
+            };
+            if should_update {
+                *backup = Some(snapshot);
+            }
+        } else {
+            eprintln!("! Cannot update backup snapshot: Node is not a Child.");
         }
     }
 }

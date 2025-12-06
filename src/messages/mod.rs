@@ -18,6 +18,9 @@ pub enum MessageType {
     },
     SolutionNotFound,
     StopSolving,
+    BackupData {
+        data: String,
+    }
 }
 
 
@@ -57,6 +60,9 @@ impl Message {
             },
             MessageType::StopSolving => {
                 format!("STOP_SOLVING|{}|{}", self.from, self.to)
+            },
+            MessageType::BackupData { data } => {
+                format!("BACKUP_DATA|{}|{}|{}", self.from, self.to, data)
             },
         }
     }
@@ -108,6 +114,13 @@ pub fn deserialize(input: &str) -> Option<Message> {
         },
         "SOLUTION_NOT_FOUND" => MessageType::SolutionNotFound,
         "STOP_SOLVING" => MessageType::StopSolving,
+        "BACKUP_DATA" => {
+            if parts.len() != 4 {
+                return None;
+            }
+            let data = parts[3].to_string();
+            MessageType::BackupData { data }
+        },
         _ => return None,
     };
 

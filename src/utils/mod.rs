@@ -1,6 +1,8 @@
 pub mod friend;
 pub mod node;
 pub mod watcher;
+pub mod leader_snapshot;
+pub mod backups;
 
 
 pub fn parse_address(input: &str) -> String {

@@ -1,6 +1,7 @@
 use crate::problem::PartOfAProblem;
+use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum FriendTypeChildState {
     WaitingForProblemParts,
     Solving {
@@ -8,7 +9,7 @@ pub enum FriendTypeChildState {
     },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum FriendType {
     Sibling,
     Child {
@@ -18,10 +19,11 @@ pub enum FriendType {
     Leader
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Friend {
     pub address: String,
     pub friend_type: FriendType,
+    pub is_backup: bool,
 }
 
 impl Friend {
@@ -29,6 +31,7 @@ impl Friend {
         Friend {
             address,
             friend_type: FriendType::Sibling,
+            is_backup: false,
         }
     }
 

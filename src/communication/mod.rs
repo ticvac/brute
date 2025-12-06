@@ -11,6 +11,7 @@ pub mod handle_solve_problem_message;
 pub mod handle_solution_not_found_message;
 pub mod handle_solution_found_message;
 pub mod handle_stop_calculating_message;
+pub mod handle_received_backup_data;
 
 use handle_calculate_power_message::handle_calculate_power_message;
 use handle_calculate_power_result::handle_calculate_power_result;
@@ -18,6 +19,7 @@ use handle_solve_problem_message::handle_solve_problem_message;
 use handle_solution_not_found_message::handle_solution_not_found_message;
 use handle_solution_found_message::handle_solution_found_message;
 use handle_stop_calculating_message::handle_stop_calculating_message;
+use handle_received_backup_data::handle_received_backup_data;
 
 pub fn listen(node: Node) {
     let listener = TcpListener::bind(&node.address).expect("Failed to bind to port");
@@ -99,6 +101,9 @@ fn handle_new_connection(node: &Node, stream: &mut TcpStream, message: Message) 
         }
         MessageType::StopSolving => {
             handle_stop_calculating_message(node);
+        }
+        MessageType::BackupData { .. } => {
+            handle_received_backup_data(node, &message.clone());
         }
     }
     send_ack_back(node, &message, stream);

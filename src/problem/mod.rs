@@ -1,19 +1,20 @@
 use sha2::{Sha256, Digest};
 use std::sync::atomic::{AtomicBool, Ordering::Relaxed};
 use std::time::{Duration, Instant};
+use serde::{Serialize, Deserialize};
 
 pub trait Combinable {
     fn total_combinations(&self) -> usize;
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum PartOfAProblemState {
     NotDistributed,
     Distributed,
     SearchedAndNotFound,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PartOfAProblem {
     pub start: String,
     pub end: String,
