@@ -59,7 +59,7 @@ pub fn handle_solve_problem_message(node: &Node, message: &Message) {
                 // TODO handle if cant reach parent
             }
         }
-        // TODO transition back to connected (waiting) state
+        // transition back to connected (waiting) state
         node_clone.transition_child_to_connected();
     });
 

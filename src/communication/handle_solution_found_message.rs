@@ -16,6 +16,10 @@ pub fn handle_solution_found_message(node: &Node, message: &Message) {
     }
     println!("--------------------");
 
+    stop_and_send_stop_messages(node);
+}
+
+pub fn stop_and_send_stop_messages(node: &Node) {
     // transition back to leader waiting state
     node.transition_leader_to_waiting();
 
@@ -37,5 +41,4 @@ pub fn handle_solution_found_message(node: &Node, message: &Message) {
             let _ = send_message(&stop_message, &node_clone);
         });
     }
-    
 }

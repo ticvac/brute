@@ -9,4 +9,7 @@ pub fn handle_solution_not_found_message(node: &Node, message: &Message) {
     
     let friend_address = &message.from;
     node.handle_solution_not_found_from_friend(friend_address);
+    // TODO notify backup
+
+    // TODO check if solved entire space
 }
