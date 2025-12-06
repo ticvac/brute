@@ -3,6 +3,7 @@ mod utils;
 mod communication;
 mod commands;
 mod messages;
+mod problem;
 
 use args::Args;
 use utils::parse_address;
@@ -10,6 +11,7 @@ use clap::Parser;
 use utils::friend::Friend;
 use utils::node::Node;
 use communication::listen;
+use problem::solve_for_one_sec;
 
 use crate::commands::proccess_commands;
 
@@ -27,8 +29,15 @@ fn main() {
         })
         .collect();
 
+    // calculate node power
+    println!("Calculating node power...");
+    let power = solve_for_one_sec();
+    let k_power = power / 1000;
+    println!("Node power (1k hashes per second): {}", k_power);
+    
+
     // create node
-    let node = Node::new(my_address, friends);
+    let node = Node::new(my_address, friends, k_power as u32);
 
     // printing node info
     node.print_info();

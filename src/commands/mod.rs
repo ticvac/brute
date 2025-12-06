@@ -1,8 +1,10 @@
 pub mod handle_ping_command;
+mod handle_cal_command;
 
 use crate::utils::node::Node;
 use std::io::{self, BufRead};
 use handle_ping_command::handle_ping_command;
+use handle_cal_command::handle_cal_command;
 
 pub fn proccess_commands(node: &Node) {
     let stdin = io::stdin();
@@ -25,6 +27,9 @@ pub fn proccess_commands(node: &Node) {
             }
             "ping" => {
                 handle_ping_command(node, parts);
+            }
+            "cal" => {
+                handle_cal_command(node);
             }
             _ => {
                 println!("Unknown command: {}", parts[0]);

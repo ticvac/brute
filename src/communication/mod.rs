@@ -5,6 +5,10 @@ use std::io::{Read, Write};
 use crate::messages::deserialize;
 use crate::messages::MessageType;
 
+pub mod handle_calculate_power_message;
+
+use handle_calculate_power_message::handle_calculate_power_message;
+
 pub fn listen(node: Node) {
     let listener = TcpListener::bind(&node.address).expect("Failed to bind to port");
     // listen loop
@@ -55,7 +59,6 @@ fn read_message(_stream: &mut TcpStream) -> Option<String> {
     }
 }
 
-
 fn handle_new_connection(node: &Node, stream: &mut TcpStream, message: Message) {
     // adding friend if not exists
     if !node.is_friend(&message.from) {
@@ -66,11 +69,11 @@ fn handle_new_connection(node: &Node, stream: &mut TcpStream, message: Message) 
         MessageType::Ping => {
             // nothing, just respond with ACK
         }
-        MessageType::CalculatePower => {
-            
+        MessageType::CalculatePower { leader_address: _ } => {
+            handle_calculate_power_message(node, &message);
         }
         MessageType::CalculatePowerResult { power: _ } => {
-            eprintln!("! Received CalculatePowerResult as new connection, ignoring. {:?}", message);
+            println!("Node connecting... to calc")
         }
         MessageType::Ack => {
             eprintln!("! Received ACK as new connection, ignoring. {:?}", message);

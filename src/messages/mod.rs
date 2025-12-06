@@ -5,7 +5,7 @@ pub mod send_message;
 pub enum MessageType {
     Ping,
     Ack,
-    CalculatePower,
+    CalculatePower { leader_address: String },
     CalculatePowerResult { power: u32 },
 }
 
@@ -31,7 +31,7 @@ impl Message {
         match &self.message_type {
             MessageType::Ping => format!("PING|{}|{}", self.from, self.to),
             MessageType::Ack => format!("ACK|{}|{}", self.from, self.to),
-            MessageType::CalculatePower => format!("CALCULATE_POWER|{}|{}", self.from, self.to),
+            MessageType::CalculatePower { leader_address } => format!("CALCULATE_POWER|{}|{}|{}", self.from, self.to, leader_address),
             MessageType::CalculatePowerResult { power } => {
                 format!("CALCULATE_POWER_RESULT|{}|{}|{}", self.from, self.to, power)
             }
@@ -52,7 +52,13 @@ pub fn deserialize(input: &str) -> Option<Message> {
     let message_type = match message_type_str {
         "PING" => MessageType::Ping,
         "ACK" => MessageType::Ack,
-        "CALCULATE_POWER" => MessageType::CalculatePower,
+        "CALCULATE_POWER" => {
+            if parts.len() != 4 {
+                return None;
+            }
+            let leader_address = parts[3].to_string();
+            MessageType::CalculatePower { leader_address }
+        },
         "CALCULATE_POWER_RESULT" => {
             if parts.len() != 4 {
                 return None;

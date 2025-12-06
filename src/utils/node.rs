@@ -1,9 +1,26 @@
 use std::sync::{Arc, Mutex};
 use super::friend::Friend;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+pub enum ChildState {
+    Connected,
+}
+
+#[derive(Debug, Clone)]
+pub enum LeaderState {
+    WaitingForProblem
+}
+
+#[derive(Debug, Clone)]
 pub enum NodeState {
     Idle,
+    Child {
+        leader_address: String,
+        state: ChildState,
+    },
+    Leader {
+        state: LeaderState,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -12,15 +29,18 @@ pub struct Node {
     pub friends: Arc<Mutex<Vec<Friend>>>,
     pub state: Arc<Mutex<NodeState>>,
     pub communicating: Arc<Mutex<bool>>,
+    // k hashes per second
+    pub power: u32,
 }
 
 impl Node {
-    pub fn new(address: String, friends: Vec<Friend>) -> Self {
+    pub fn new(address: String, friends: Vec<Friend>, power: u32) -> Self {
         Node {
             address,
             friends: Arc::new(Mutex::new(friends)),
             state: Arc::new(Mutex::new(NodeState::Idle)),
             communicating: Arc::new(Mutex::new(true)),
+            power,
         }
     }
 
@@ -60,6 +80,25 @@ impl Node {
         } else {
             println!("Friend with address {} already exists.", friend_address);
         }
+    }
+
+    pub fn is_idle(&self) -> bool {
+        matches!(*self.state.lock().unwrap(), NodeState::Idle)
+    }
+
+    pub fn transition_to_leader(&self) {
+        let mut state = self.state.lock().unwrap();
+        *state = NodeState::Leader {
+            state: LeaderState::WaitingForProblem,
+        };
+    }
+
+    pub fn transition_to_child(&self, leader_address: String) {
+        let mut state = self.state.lock().unwrap();
+        *state = NodeState::Child {
+            leader_address,
+            state: ChildState::Connected,
+        };
     }
 
 }
