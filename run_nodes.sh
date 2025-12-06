@@ -75,13 +75,13 @@ tail -f $PIPE_2002 | cargo run -- -p 2002 -f 2001,2003,2005 2>&1 | sed 's/^/[Nod
 sleep 0.5
 
 # Run fourth node
-tail -f $PIPE_2003 | cargo run -- -p 2003 -f 2002,2004,2005 2>&1 | sed 's/^/[Node 2003] /' &
+tail -f $PIPE_2003 | cargo run -- -p 2003 -f 2002,2004,2005 --faker 2>&1 | sed 's/^/[Node 2003] /' &
 
 # Wait a bit
 sleep 0.5
 
 # Run fifth node
-tail -f $PIPE_2004 | cargo run -- -p 2004 -f 2003,2005 2>&1 | sed 's/^/[Node 2004] /' &
+tail -f $PIPE_2004 | cargo run -- -p 2004 -f 2003,2005 --faker 2>&1 | sed 's/^/[Node 2004] /' &
 
 # Wait a bit
 sleep 0.5

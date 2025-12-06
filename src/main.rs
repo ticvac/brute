@@ -31,8 +31,12 @@ fn main() {
 
     // calculate node power
     let power = solve_for_one_sec();
-    let k_power = power / 1000;
-    
+    let k_power = if args.faker {
+        println!("[Faker] Reporting only 1/10 of actual power!");
+        power / 10000  // one tenth of k_power
+    } else {
+        power / 1000
+    };
 
     // create node
     let node = Node::new(my_address, friends, k_power as u32);

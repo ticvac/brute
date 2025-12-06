@@ -11,4 +11,8 @@ pub struct Args {
     /// List of friends to connect to (format: port or ip:port)
     #[arg(short, long, value_delimiter = ',')]
     pub friends: Vec<String>,
+
+    /// Faker mode: report only one tenth of actual power
+    #[arg(long, default_value_t = false)]
+    pub faker: bool,
 }
