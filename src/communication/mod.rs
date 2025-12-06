@@ -105,6 +105,9 @@ fn handle_new_connection(node: &Node, stream: &mut TcpStream, message: Message) 
         MessageType::BackupData { .. } => {
             handle_received_backup_data(node, &message.clone());
         }
+        MessageType::IAmANewLeader => {
+            node.set_leader_address(message.from.clone());
+        }
     }
     send_ack_back(node, &message, stream);
 }

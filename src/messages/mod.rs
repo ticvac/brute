@@ -20,7 +20,8 @@ pub enum MessageType {
     StopSolving,
     BackupData {
         data: String,
-    }
+    },
+    IAmANewLeader,
 }
 
 
@@ -63,6 +64,9 @@ impl Message {
             },
             MessageType::BackupData { data } => {
                 format!("BACKUP_DATA|{}|{}|{}", self.from, self.to, data)
+            },
+            MessageType::IAmANewLeader => {
+                format!("I_AM_A_NEW_LEADER|{}|{}", self.from, self.to)
             },
         }
     }
@@ -121,6 +125,7 @@ pub fn deserialize(input: &str) -> Option<Message> {
             let data = parts[3].to_string();
             MessageType::BackupData { data }
         },
+        "I_AM_A_NEW_LEADER" => MessageType::IAmANewLeader,
         _ => return None,
     };
 

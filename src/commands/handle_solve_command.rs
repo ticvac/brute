@@ -1,3 +1,4 @@
+use crate::utils::backups::send_backup_data;
 use crate::utils::node::Node;
 use crate::utils::friend::{FriendType, FriendTypeChildState};
 use crate::utils::watcher::start_watcher;
@@ -55,6 +56,8 @@ pub fn handle_solve_command(node: &Node, parts: Vec<&str>) {
     
     // start watcher to monitor children
     start_watcher(node.clone());
+
+    send_backup_data(node);
 }
 
 

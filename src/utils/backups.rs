@@ -16,9 +16,24 @@ pub fn send_backup_data(node: &Node) {
         let res = send_message(&backup_message, node);
         if res.is_none() {
             eprintln!("! Failed to send backup data to child {}", backup_message.to);
-            eprintln!("! needs new backup...")
+            eprintln!("! Selecting new backup...");
+            node.remove_friend(&backup_address);
+            select_new_backup(node);
         } else {
             println!("[Backup] Sent backup data to child {}", backup_message.to);
         }
+    }
+}
+
+/// Select a new backup node from available children
+pub fn select_new_backup(node: &Node) {
+    // Get first available child as new backup
+    if let Some(new_backup_addr) = node.get_child_addresses().first().cloned() {
+        node.set_backup_address(new_backup_addr.clone());
+        println!("[Backup] Selected new backup: {}", new_backup_addr);
+        send_backup_data(node);
+    } else {
+        node.set_has_backup(false);
+        println!("[Backup] No available children to select as new backup.");
     }
 }

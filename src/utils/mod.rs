@@ -3,6 +3,7 @@ pub mod node;
 pub mod watcher;
 pub mod leader_snapshot;
 pub mod backups;
+pub mod backup_watcher;
 
 
 pub fn parse_address(input: &str) -> String {

@@ -1,8 +1,10 @@
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use crate::problem::{PartOfAProblem, Problem};
+use crate::utils::backup_watcher::start_backup_watcher;
 use crate::utils::leader_snapshot::LeaderSnapshot;
 use serde::{Serialize, Deserialize};
+use crate::utils::backups::send_backup_data;
 
 use super::friend::{FriendType, Friend};
 
@@ -379,13 +381,173 @@ impl Node {
             // Only update if new snapshot timestamp is greater than the existing one
             let should_update = match &*backup {
                 Some(existing) => snapshot.timestamp > existing.timestamp,
-                None => true,
+                None => {
+                    // setting new backup snapshot
+                    println!("[Node] Setting new backup snapshot.");
+                    start_backup_watcher(self.clone().into());
+                    true
+                },
             };
             if should_update {
                 *backup = Some(snapshot);
             }
         } else {
             eprintln!("! Cannot update backup snapshot: Node is not a Child.");
+        }
+    }
+
+    pub fn has_backup_snapshot(&self) -> bool {
+        let state = self.state.lock().unwrap();
+        if let NodeState::Child { backup_snapshot, .. } = &*state {
+            backup_snapshot.lock().unwrap().is_some()
+        } else {
+            false
+        }
+    }
+
+    pub fn get_backup_snapshot(&self) -> Option<LeaderSnapshot> {
+        let state = self.state.lock().unwrap();
+        if let NodeState::Child { backup_snapshot, .. } = &*state {
+            backup_snapshot.lock().unwrap().clone()
+        } else {
+            None
+        }
+    }
+
+    pub fn promote_to_leader_from_backup(&self) {
+        // Get the backup snapshot before transitioning
+        let snapshot = match self.get_backup_snapshot() {
+            Some(s) => s,
+            None => {
+                eprintln!("! Cannot promote to leader: No backup snapshot available.");
+                return;
+            }
+        };
+
+        println!("[Node] Promoting to leader from backup snapshot...");
+
+        // Transition to leader with the snapshot's leader state
+        {
+            let mut state = self.state.lock().unwrap();
+            *state = NodeState::Leader {
+                state: snapshot.leader_state.clone(),
+                has_backup: Arc::new(Mutex::new(AtomicBool::new(false))),
+            };
+        }
+
+        // Update friends list based on snapshot's children
+        // Set all children to not be backup
+        {
+            let mut friends = self.friends.lock().unwrap();
+            for snapshot_child in &snapshot.children {
+                if let Some(friend) = friends.iter_mut().find(|f| f.address == snapshot_child.address) {
+                    // Update friend type from snapshot but clear backup flag
+                    friend.friend_type = snapshot_child.friend_type.clone();
+                    friend.is_backup = false;
+                } else {
+                    // Add new friend from snapshot
+                    let mut new_friend = snapshot_child.clone();
+                    new_friend.is_backup = false;
+                    friends.push(new_friend);
+                }
+            }
+        }
+
+        // Send IAmANewLeader message to all children in parallel and collect responses
+        let child_addresses = self.get_child_addresses();
+        
+        println!("[Node] Notifying {} children about new leader...", child_addresses.len());
+        
+        // Spawn threads for each child
+        let mut handles: Vec<std::thread::JoinHandle<Option<String>>> = Vec::new();
+        
+        for child_addr in child_addresses {
+            let node_address = self.address.clone();
+            let node_clone = self.clone();
+            let child_addr_clone = child_addr.clone();
+            
+            let handle = std::thread::spawn(move || {
+                use crate::messages::{Message, MessageType};
+                use crate::messages::send_message::send_message;
+                
+                let message = Message::new(
+                    node_address,
+                    child_addr_clone.clone(),
+                    MessageType::IAmANewLeader,
+                );
+                
+                match send_message(&message, &node_clone) {
+                    Some(response) => {
+                        if matches!(response.message_type, MessageType::Ack) {
+                            println!("[Node] Child {} acknowledged new leader.", child_addr_clone);
+                            Some(child_addr_clone)
+                        } else {
+                            println!("[Node] Child {} sent unexpected response: {:?}", child_addr_clone, response.message_type);
+                            None
+                        }
+                    }
+                    None => {
+                        println!("[Node] Child {} did not respond.", child_addr_clone);
+                        None
+                    }
+                }
+            });
+            
+            handles.push(handle);
+        }
+        
+        // Wait for all threads and collect responding children
+        let mut responding_children: Vec<String> = Vec::new();
+        let mut non_responding_children: Vec<String> = Vec::new();
+        
+        for handle in handles {
+            match handle.join() {
+                Ok(Some(child_addr)) => {
+                    responding_children.push(child_addr);
+                }
+                Ok(None) => {
+                    // Child did not respond properly - will be handled below
+                }
+                Err(_) => {
+                    eprintln!("[Node] Thread panicked while notifying child.");
+                }
+            }
+        }
+        
+        // Remove non-responding children from friends list
+        {
+            let all_children = self.get_child_addresses();
+            for child_addr in &all_children {
+                if !responding_children.contains(child_addr) {
+                    non_responding_children.push(child_addr.clone());
+                }
+            }
+            
+            for child_addr in &non_responding_children {
+                println!("[Node] Removing non-responding child: {}", child_addr);
+                self.remove_friend(child_addr);
+            }
+        }
+
+        // Select first responding child as new backup and send backup data
+        if let Some(backup_addr) = responding_children.first().cloned() {
+            self.set_has_backup(true);
+            self.set_backup_address(backup_addr.clone());
+            println!("[Node] Selected {} as new backup.", backup_addr);
+            send_backup_data(self);
+        } else {
+            println!("[Node] No children responded to select as backup.");
+        }
+
+        println!("[Node] Successfully promoted to leader from backup.");
+    }
+
+    pub fn set_leader_address(&self, leader_address: String) {
+        let mut state = self.state.lock().unwrap();
+        if let NodeState::Child { leader_address: addr, .. } = &mut *state {
+            *addr = leader_address;
+        } else {
+            eprintln!("! Cannot set leader address: Node is not a Child.");
         }
     }
 }
