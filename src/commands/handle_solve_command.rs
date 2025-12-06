@@ -1,5 +1,6 @@
 use crate::utils::node::Node;
 use crate::utils::friend::{FriendType, FriendTypeChildState};
+use crate::utils::watcher::start_watcher;
 use crate::problem::{merge_parts, PartOfAProblem, Problem, PartOfAProblemState};
 use crate::messages::send_message::send_message;
 use crate::messages::{Message, MessageType};
@@ -51,6 +52,9 @@ pub fn handle_solve_command(node: &Node, parts: Vec<&str>) {
     send_problem_parts_to_children(node, &mut parts);
     // save parts to leader
     node.set_problem_parts(parts);
+    
+    // start watcher to monitor children
+    start_watcher(node.clone());
 }
 
 

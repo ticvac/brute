@@ -110,6 +110,13 @@ impl Node {
         }
     }
 
+    pub fn is_leader_solving(&self) -> bool {
+        match &*self.state.lock().unwrap() {
+            NodeState::Leader { state } => matches!(state, LeaderState::Solving { .. }),
+            _ => false,
+        }
+    }
+
     pub fn transition_to_leader(&self) {
         let mut state = self.state.lock().unwrap();
         *state = NodeState::Leader {

@@ -1,5 +1,6 @@
 pub mod friend;
 pub mod node;
+pub mod watcher;
 
 
 pub fn parse_address(input: &str) -> String {
