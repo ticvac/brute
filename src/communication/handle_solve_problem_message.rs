@@ -40,27 +40,38 @@ pub fn handle_solve_problem_message(node: &Node, message: &Message) {
             Some(solution) => {
                 println!("Problem solved! Solution: {}", solution);
                 // send solution back to leader
-                let solution_message = Message::new(
-                    node_clone.address.clone(),
-                    node_clone.get_leader_address(),
-                    MessageType::SolutionFound { solution }
-                );
-                let _ = send_message(&solution_message, &node_clone);
-                // TODO handle if cant reach parent
+                loop {
+                    let solution_message = Message::new(
+                        node_clone.address.clone(),
+                        node_clone.get_leader_address(),
+                        MessageType::SolutionFound { solution: solution.clone() }
+                    );
+                
+                    if send_message(&solution_message, &node_clone).is_some() {
+                        break;
+                    }
+                    println!("Could not reach leader, retrying to send solution...");
+                    std::thread::sleep(std::time::Duration::from_secs(2));
+                }
             }
             None => {
                 if node_clone.get_stop_flag().load(std::sync::atomic::Ordering::Relaxed) {
                     println!("Problem solving was stopped before completion.");
                     return;
                 }
-                println!("Problem could not be solved in the given range.");
-                let message = Message::new(
-                    node_clone.address.clone(),
-                    node_clone.get_leader_address(),
-                    MessageType::SolutionNotFound
-                );
-                let _ = send_message(&message, &node_clone);
-                // TODO handle if cant reach parent
+                loop {
+                    println!("Could not find a solution in the given range, notifying leader...");
+                    let solution_message = Message::new(
+                        node_clone.address.clone(),
+                        node_clone.get_leader_address(),
+                        MessageType::SolutionNotFound
+                    );
+                    if send_message(&solution_message, &node_clone).is_some() {
+                        break;
+                    }
+                    println!("Could not reach leader, retrying to send no-solution message...");
+                    std::thread::sleep(std::time::Duration::from_secs(2));
+                }
             }
         }
         // transition back to connected (waiting) state
