@@ -1,14 +1,23 @@
 use std::sync::{Arc, Mutex};
-use super::friend::Friend;
+use crate::problem::{PartOfAProblem, Problem};
+
+use super::friend::{FriendType, Friend};
 
 #[derive(Debug, Clone)]
 pub enum ChildState {
     Connected,
+    Solving {
+        part: Problem,
+    }
 }
 
 #[derive(Debug, Clone)]
 pub enum LeaderState {
-    WaitingForProblem
+    WaitingForProblem,
+    Solving {
+        problem: Problem,
+        parts: Vec<PartOfAProblem>,
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -91,6 +100,13 @@ impl Node {
         matches!(*self.state.lock().unwrap(), NodeState::Leader { .. })
     }
 
+    pub fn is_leader_waiting_for_problem(&self) -> bool {
+        match &*self.state.lock().unwrap() {
+            NodeState::Leader { state } => matches!(state, LeaderState::WaitingForProblem),
+            _ => false,
+        }
+    }
+
     pub fn transition_to_leader(&self) {
         let mut state = self.state.lock().unwrap();
         *state = NodeState::Leader {
@@ -100,10 +116,17 @@ impl Node {
 
     pub fn transition_to_child(&self, leader_address: String) {
         let mut state = self.state.lock().unwrap();
+        let leader_address_clone = leader_address.clone();
         *state = NodeState::Child {
             leader_address,
             state: ChildState::Connected,
         };
+        let mut friends = self.friends.lock().unwrap();
+        
+        if let Some(friend) = friends.iter_mut().find(|f| f.address == leader_address_clone) {
+            friend.set_as_leader();
+        }
+
     }
 
     pub fn transition_friend_to_child(&self, friend_address: String, power: u32) {
@@ -112,6 +135,117 @@ impl Node {
             friend.transition_to_child(power);
         } else {
             eprintln!("! Friend with address {} not found for transition to child.", friend_address);
+        }
+    }
+
+    pub fn transition_to_idle(&self) {
+        let mut state = self.state.lock().unwrap();
+        *state = NodeState::Idle;
+        let mut friends = self.friends.lock().unwrap();
+        for friend in friends.iter_mut() {
+            friend.transition_to_sibling();
+        }
+    }
+
+    pub fn set_problem(&self, problem: Problem) {
+        let problem_part = PartOfAProblem::new_from_problem(&problem, problem.start.clone(), problem.end.clone());
+        let mut state = self.state.lock().unwrap();
+        *state = NodeState::Leader {
+            state: LeaderState::Solving {
+                problem,
+                parts: vec![problem_part],
+            },
+        };
+    }
+
+    pub fn set_problem_parts(&self, parts: Vec<PartOfAProblem>) {
+        let mut state = self.state.lock().unwrap();
+        if let NodeState::Leader { state: leader_state } = &mut *state {
+            match leader_state {
+                LeaderState::Solving { problem: _, parts: leader_parts } => {
+                    *leader_parts = parts;
+                },
+                _ => {
+                    eprintln!("! Cannot set problem parts: Node is not in Solving state.");
+                }
+            }
+        } else {
+            eprintln!("! Cannot set problem parts: Node is not a Leader.");
+        }
+    }
+
+    pub fn get_total_power_of_friends(&self) -> u32 {
+        let friends = self.friends.lock().unwrap();
+        friends.iter().map(|f| {
+            match f.friend_type {
+                FriendType::Sibling => 0,
+                FriendType::Child { power, ..} => power,
+                FriendType::Leader => 0,
+            }
+        }).sum()
+    }
+
+    pub fn set_friend_child_state_solving(&self, friend_address: &str, part: PartOfAProblem) {
+        let mut friends = self.friends.lock().unwrap();
+        if let Some(friend) = friends.iter_mut().find(|f| f.address == friend_address) {
+            friend.set_child_state_solving(part);
+        } else {
+            eprintln!("! Friend with address {} not found for setting solving state.", friend_address);
+        }
+    }
+
+    pub fn is_child_connected(&self) -> bool {
+        match &*self.state.lock().unwrap() {
+            NodeState::Child { state, .. } => matches!(state, ChildState::Connected),
+            _ => false,
+        }
+    }
+
+    pub fn transition_to_child_solving(&self, part: Problem) {
+        let mut state = self.state.lock().unwrap();
+        if let NodeState::Child { state: child_state, .. } = &mut *state {
+            *child_state = ChildState::Solving { part };
+        } else {
+            eprintln!("! Cannot transition to child solving: Node is not a Child.");
+        }
+    }
+
+    pub fn get_leader_address(&self) -> String {
+        match &*self.state.lock().unwrap() {
+            NodeState::Child { leader_address, .. } => leader_address.clone(),
+            _ => {
+                // should not really happen...
+                eprintln!("! Cannot get leader address: Node is not a Child.");
+                String::new()
+            }
+        }
+    }
+
+    pub fn handle_solution_not_found_from_friend(&self, friend_address: &str) {
+        use crate::problem::{PartOfAProblemState, update_state_of_parts};
+        
+        let mut friends = self.friends.lock().unwrap();
+        let friend = friends.iter_mut().find(|f| f.address == friend_address);
+        
+        if let Some(friend) = friend {
+            if let Some(mut part) = friend.get_solving_part_and_transition_to_waiting() {
+                // Mark the part as searched and not found
+                part.state = PartOfAProblemState::SearchedAndNotFound;
+                
+                // Update the problem parts in the leader state
+                drop(friends); // Release the lock before acquiring state lock
+                let mut state = self.state.lock().unwrap();
+                if let NodeState::Leader { state: LeaderState::Solving { parts, .. } } = &mut *state {
+                    update_state_of_parts(parts, &part);
+                    println!("Marked part [{} - {}] as searched and not found from friend {}", part.start, part.end, friend_address);
+                } else {
+                    eprintln!("! Cannot update parts: Node is not a Leader in Solving state.");
+                }
+            } else {
+                eprintln!("! Friend {} was not in Solving state.", friend_address);
+            }
+        } else {
+            eprintln!("! Friend {} not found.", friend_address);
         }
     }
 }

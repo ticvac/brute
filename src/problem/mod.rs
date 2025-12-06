@@ -11,7 +11,6 @@ pub enum PartOfAProblemState {
     NotDistributed,
     Distributed,
     SearchedAndNotFound,
-    Solving,
 }
 
 #[derive(Debug, Clone)]
@@ -233,26 +232,6 @@ impl Problem {
         }
     }
 
-    // pub fn new_from_solve_message(message: &SolveProblemMessage) -> Self {
-    //     Problem {
-    //         alphabet: message.alphabet.clone(),
-    //         start: message.start.clone(),
-    //         end: message.end.clone(),
-    //         hash: message.hash.clone(),
-    //         current: message.start.clone(),
-    //     }
-    // }
-
-    pub fn new_from_part(part: &PartOfAProblem) -> Self {
-        Problem {
-            alphabet: part.alphabet.clone(),
-            start: part.start.clone(),
-            end: part.end.clone(),
-            hash: part.hash.clone(),
-            current: part.start.clone(),
-        }
-    }
-
     pub fn brute_force(&mut self, stop_flag: &AtomicBool) -> Option<String> {
         loop {
             if stop_flag.load(Relaxed) {
@@ -336,6 +315,82 @@ impl Problem {
         parts
     }
 
+    /// Divides the problem into n+1 parts:
+    /// - First n parts: roughly (100 - percentage)% of the problem, divided equally
+    /// - Last part: roughly percentage% of the problem as one piece
+    pub fn divide_into_n_and_keep_percentage(&self, n: usize, percentage: f64) -> Vec<PartOfAProblem> {
+        let total = self.total_combinations();
+        if n == 0 || total == 0 || percentage < 0.0 || percentage > 100.0 {
+            return vec![];
+        }
+
+        let min_len = self.start.len().max(self.end.len());
+        let start_idx = self.str_to_index(&self.start);
+        let end_idx = self.str_to_index(&self.end);
+
+        // Calculate the split point
+        let first_part_ratio = (100.0 - percentage) / 100.0;
+        let first_part_total = ((total as f64) * first_part_ratio).round() as usize;
+        
+        if first_part_total == 0 {
+            // Everything goes to the last piece
+            return vec![PartOfAProblem {
+                start: self.index_to_str(start_idx, min_len),
+                end: self.index_to_str(end_idx, min_len),
+                alphabet: self.alphabet.clone(),
+                hash: self.hash.clone(),
+                state: PartOfAProblemState::NotDistributed,
+            }];
+        }
+
+        let mut parts = Vec::new();
+        
+        // Divide the first (100 - percentage)% into n parts
+        let num_parts = n.min(first_part_total);
+        let mut prev_start = start_idx;
+        let mut remaining = first_part_total;
+        
+        for i in 0..num_parts {
+            let part_size = if i == num_parts - 1 {
+                remaining
+            } else {
+                (remaining + (num_parts - i) - 1) / (num_parts - i) // ceil division for fair split
+            };
+            let part_end = prev_start + part_size - 1;
+            
+            if part_end > end_idx {
+                break;
+            }
+            
+            let part = PartOfAProblem {
+                start: self.index_to_str(prev_start, min_len),
+                end: self.index_to_str(part_end, min_len),
+                alphabet: self.alphabet.clone(),
+                hash: self.hash.clone(),
+                state: PartOfAProblemState::NotDistributed,
+            };
+            parts.push(part);
+            prev_start = part_end + 1;
+            if remaining < part_size { break; }
+            remaining -= part_size;
+            if prev_start > end_idx { break; }
+        }
+
+        // Add the last piece (the remaining percentage%)
+        if prev_start <= end_idx {
+            let last_part = PartOfAProblem {
+                start: self.index_to_str(prev_start, min_len),
+                end: self.index_to_str(end_idx, min_len),
+                alphabet: self.alphabet.clone(),
+                hash: self.hash.clone(),
+                state: PartOfAProblemState::NotDistributed,
+            };
+            parts.push(last_part);
+        }
+
+        parts
+    }
+
     pub fn next(&mut self) -> Option<String> {
         if self.current == self.end {
             return None;
@@ -392,7 +447,6 @@ pub fn solve_for_one_sec() -> usize {
             break;
         }
     }
-    
     count
 }
 

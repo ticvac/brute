@@ -1,10 +1,12 @@
 pub mod handle_ping_command;
 mod handle_cal_command;
+mod handle_solve_command;
 
 use crate::utils::node::Node;
 use std::io::{self, BufRead};
 use handle_ping_command::handle_ping_command;
 use handle_cal_command::handle_cal_command;
+use handle_solve_command::handle_solve_command;
 
 pub fn proccess_commands(node: &Node) {
     let stdin = io::stdin();
@@ -30,6 +32,14 @@ pub fn proccess_commands(node: &Node) {
             }
             "cal" => {
                 handle_cal_command(node);
+            }
+            "comm" => {
+                let mut comm_lock = node.communicating.lock().unwrap();
+                *comm_lock = !*comm_lock;
+                println!("Node communicating set to: {}", *comm_lock);
+            }
+            "solve" => {
+                handle_solve_command(node, parts)
             }
             _ => {
                 println!("Unknown command: {}", parts[0]);

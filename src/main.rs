@@ -30,10 +30,8 @@ fn main() {
         .collect();
 
     // calculate node power
-    println!("Calculating node power...");
     let power = solve_for_one_sec();
     let k_power = power / 1000;
-    println!("Node power (1k hashes per second): {}", k_power);
     
 
     // create node

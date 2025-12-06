@@ -7,9 +7,13 @@ use crate::messages::MessageType;
 
 pub mod handle_calculate_power_message;
 pub mod handle_calculate_power_result;
+pub mod handle_solve_problem_message;
+pub mod handle_solution_not_found_message;
 
 use handle_calculate_power_message::handle_calculate_power_message;
 use handle_calculate_power_result::handle_calculate_power_result;
+use handle_solve_problem_message::handle_solve_problem_message;
+use handle_solution_not_found_message::handle_solution_not_found_message;
 
 pub fn listen(node: Node) {
     let listener = TcpListener::bind(&node.address).expect("Failed to bind to port");
@@ -72,13 +76,23 @@ fn handle_new_connection(node: &Node, stream: &mut TcpStream, message: Message) 
             // nothing, just respond with ACK
         }
         MessageType::CalculatePower { leader_address: _ } => {
-            handle_calculate_power_message(node, &message);
+            handle_calculate_power_message(node, &message.clone());
         }
         MessageType::CalculatePowerResult { power: _ } => {
-            handle_calculate_power_result(node, &message);
+            handle_calculate_power_result(node, &message.clone());
+        }
+        MessageType::SolveProblem { .. } => {
+            handle_solve_problem_message(node, &message.clone());
         }
         MessageType::Ack => {
             eprintln!("! Received ACK as new connection, ignoring. {:?}", message);
+        }
+        MessageType::SolutionFound { .. } => {
+            println!("Received SolutionFound message. {:?}", message);
+
+        }
+        MessageType::SolutionNotFound => {
+            handle_solution_not_found_message(node, &message.clone());
         }
     }
     send_ack_back(node, &message, stream);

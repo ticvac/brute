@@ -35,7 +35,12 @@ pub fn handle_calculate_power_message(node: &Node, message: &Message) {
             leader_address,
             MessageType::CalculatePowerResult { power: my_power },
         );
-        send_message(&message, &node_clone);
+        let res = send_message(&message, &node_clone);
+        if res.is_none() {
+            eprintln!("Failed to send CalculatePowerResult message to leader.");
+            // transition back to idle
+            node_clone.transition_to_idle();
+        }
     });
     
 }
@@ -55,7 +60,11 @@ pub fn send_calculate_power_messages(node: &Node, leader_address: &str) {
             MessageType::CalculatePower { leader_address: leader_address.to_string() },
         );
         std::thread::spawn(move || {
-            send_message(&message, &node_clone);
+            let res = send_message(&message, &node_clone);
+            if res.is_none() {
+                eprintln!("Failed to send CalculatePower message to friend: {}", friend_address);
+                node_clone.remove_friend(&friend_address);
+            }
         });
     }
 }

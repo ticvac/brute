@@ -1,3 +1,5 @@
+use clap::builder::Str;
+
 pub mod send_message;
 
 
@@ -7,6 +9,16 @@ pub enum MessageType {
     Ack,
     CalculatePower { leader_address: String },
     CalculatePowerResult { power: u32 },
+    SolveProblem {
+        start: String,
+        end: String,
+        alphabet: String,
+        hash: String,
+    },
+    SolutionFound {
+        solution: String,
+    },
+    SolutionNotFound,
 }
 
 
@@ -34,7 +46,16 @@ impl Message {
             MessageType::CalculatePower { leader_address } => format!("CALCULATE_POWER|{}|{}|{}", self.from, self.to, leader_address),
             MessageType::CalculatePowerResult { power } => {
                 format!("CALCULATE_POWER_RESULT|{}|{}|{}", self.from, self.to, power)
-            }
+            },
+            MessageType::SolveProblem { start, end, alphabet, hash } => {
+                format!("SOLVE_PROBLEM|{}|{}|{}|{}|{}|{}", self.from, self.to, start, end, alphabet, hash)
+            },
+            MessageType::SolutionFound { solution } => {
+                format!("SOLUTION_FOUND|{}|{}|{}", self.from, self.to, solution)
+            },
+            MessageType::SolutionNotFound => {
+                format!("SOLUTION_NOT_FOUND|{}|{}", self.from, self.to)
+            },
         }
     }
 }
@@ -66,6 +87,24 @@ pub fn deserialize(input: &str) -> Option<Message> {
             let power = parts[3].parse::<u32>().ok()?;
             MessageType::CalculatePowerResult { power }
         }
+        "SOLVE_PROBLEM" => {
+            if parts.len() != 7 {
+                return None;
+            }
+            let start = parts[3].to_string();
+            let end = parts[4].to_string();
+            let alphabet = parts[5].to_string();
+            let hash = parts[6].to_string();
+            MessageType::SolveProblem { start, end, alphabet, hash }
+        },
+        "SOLUTION_FOUND" => {
+            if parts.len() != 4 {
+                return None;
+            }
+            let solution = parts[3].to_string();
+            MessageType::SolutionFound { solution }
+        },
+        "SOLUTION_NOT_FOUND" => MessageType::SolutionNotFound,
         _ => return None,
     };
 
