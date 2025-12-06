@@ -272,49 +272,6 @@ impl Problem {
         chars.iter().collect()
     }
 
-    /// Divide the problem into n parts, each with roughly the same number of combinations
-    pub fn divide_into_n(&self, n: usize) -> Vec<PartOfAProblem> {
-        let total = self.total_combinations();
-        if n == 0 || total == 0 {
-            return vec![];
-        }
-        let num_parts = n.min(total); // never create more parts than total combinations
-        let min_len = self.start.len().max(self.end.len());
-        let start_idx = self.str_to_index(&self.start);
-        let end_idx = self.str_to_index(&self.end);
-        let mut parts = Vec::new();
-        let mut prev_start = start_idx;
-        let mut remaining = total;
-        for i in 0..num_parts {
-            let part_size = if i == num_parts - 1 {
-                remaining
-            } else {
-                (remaining + (num_parts - i) - 1) / (num_parts - i) // ceil division for fair split
-            };
-            let part_end = if i == num_parts - 1 {
-                end_idx
-            } else {
-                prev_start + part_size - 1
-            };
-            if part_end > end_idx {
-                break;
-            }
-            let part = PartOfAProblem {
-                start: self.index_to_str(prev_start, min_len),
-                end: self.index_to_str(part_end, min_len),
-                alphabet: self.alphabet.clone(),
-                hash: self.hash.clone(),
-                state: PartOfAProblemState::NotDistributed,
-            };
-            parts.push(part);
-            prev_start = part_end + 1;
-            if remaining < part_size { break; }
-            remaining -= part_size;
-            if prev_start > end_idx { break; }
-        }
-        parts
-    }
-
     /// Divides the problem into n+1 parts:
     /// - First n parts: roughly (100 - percentage)% of the problem, divided equally
     /// - Last part: roughly percentage% of the problem as one piece

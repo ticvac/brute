@@ -1,7 +1,7 @@
 use crate::messages::send_message::send_message;
 use crate::utils::node::Node;
 use crate::messages::{Message, MessageType};
-use crate::problem::{self, Problem};
+use crate::problem::{Problem};
 
 
 pub fn handle_solve_problem_message(node: &Node, message: &Message) {

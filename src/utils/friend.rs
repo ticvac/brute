@@ -36,10 +36,6 @@ impl Friend {
         self.friend_type = FriendType::Child { power, state: FriendTypeChildState::WaitingForProblemParts };
     }
 
-    pub fn is_child(&self) -> bool {
-        matches!(self.friend_type, FriendType::Child { .. })
-    }
-
     pub fn transition_to_sibling(&mut self) {
         self.friend_type = FriendType::Sibling;
     }
