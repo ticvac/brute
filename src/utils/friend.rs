@@ -20,4 +20,8 @@ impl Friend {
             friend_type: FriendType::Sibling,
         }
     }
+
+    pub fn transition_to_child(&mut self, power: u32) {
+        self.friend_type = FriendType::Child { power };
+    }
 }

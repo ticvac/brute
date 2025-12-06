@@ -22,8 +22,21 @@ pub fn handle_calculate_power_message(node: &Node, message: &Message) {
     // send CalculatePower messages to friends
     send_calculate_power_messages(node, &leader_address);
 
-    // TODO send message back to leader with power
-    println!("TODO - send CalculatePowerResult back to leader {}", leader_address);
+    // add leader as friend
+    if !node.is_friend(&leader_address) {
+        node.add_friend(leader_address.clone());
+    }
+    // send message back to leader with power
+    let node_clone = node.clone();
+    std::thread::spawn(move || {
+        let my_power = node_clone.power.clone();
+        let message = Message::new(
+            node_clone.address.clone(),
+            leader_address,
+            MessageType::CalculatePowerResult { power: my_power },
+        );
+        send_message(&message, &node_clone);
+    });
     
 }
 

@@ -6,8 +6,10 @@ use crate::messages::deserialize;
 use crate::messages::MessageType;
 
 pub mod handle_calculate_power_message;
+pub mod handle_calculate_power_result;
 
 use handle_calculate_power_message::handle_calculate_power_message;
+use handle_calculate_power_result::handle_calculate_power_result;
 
 pub fn listen(node: Node) {
     let listener = TcpListener::bind(&node.address).expect("Failed to bind to port");
@@ -73,7 +75,7 @@ fn handle_new_connection(node: &Node, stream: &mut TcpStream, message: Message) 
             handle_calculate_power_message(node, &message);
         }
         MessageType::CalculatePowerResult { power: _ } => {
-            println!("Node connecting... to calc")
+            handle_calculate_power_result(node, &message);
         }
         MessageType::Ack => {
             eprintln!("! Received ACK as new connection, ignoring. {:?}", message);

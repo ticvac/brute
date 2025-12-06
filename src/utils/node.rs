@@ -50,6 +50,7 @@ impl Node {
         output.push_str(&format!("Address: {}\n", self.address));
         output.push_str(&format!("State: {:?}\n", self.state.lock().unwrap()));
         output.push_str(&format!("Communicating: {:?}\n", self.communicating.lock().unwrap()));
+        output.push_str(&format!("Power: {} k hashes/sec\n", self.power));
         output.push_str("Friends:\n");
         let friends = self.friends.lock().unwrap();
         for friend in friends.iter() {
@@ -86,6 +87,10 @@ impl Node {
         matches!(*self.state.lock().unwrap(), NodeState::Idle)
     }
 
+    pub fn is_leader(&self) -> bool {
+        matches!(*self.state.lock().unwrap(), NodeState::Leader { .. })
+    }
+
     pub fn transition_to_leader(&self) {
         let mut state = self.state.lock().unwrap();
         *state = NodeState::Leader {
@@ -101,4 +106,12 @@ impl Node {
         };
     }
 
+    pub fn transition_friend_to_child(&self, friend_address: String, power: u32) {
+        let mut friends = self.friends.lock().unwrap();
+        if let Some(friend) = friends.iter_mut().find(|f| f.address == friend_address) {
+            friend.transition_to_child(power);
+        } else {
+            eprintln!("! Friend with address {} not found for transition to child.", friend_address);
+        }
+    }
 }
