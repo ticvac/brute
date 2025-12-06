@@ -9,6 +9,7 @@ use crate::utils::watcher::start_watcher;
 use crate::messages::{Message, MessageType};
 use crate::messages::send_message::send_message;
 use crate::problem::{PartOfAProblemState, update_state_of_parts};
+use crate::commands::redistributing_parts::start_redistributing_parts;
 
 use super::friend::{FriendType, Friend, FriendTypeChildState};
 
@@ -541,6 +542,7 @@ impl Node {
         }
 
         println!("[Node] Successfully promoted to leader from backup.");
+        start_redistributing_parts(self);
     }
 
     pub fn set_leader_address(&self, leader_address: String) {

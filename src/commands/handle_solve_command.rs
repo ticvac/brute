@@ -5,6 +5,7 @@ use crate::utils::watcher::start_watcher;
 use crate::problem::{merge_parts, PartOfAProblem, Problem, PartOfAProblemState};
 use crate::messages::send_message::send_message;
 use crate::messages::{Message, MessageType};
+use super::redistributing_parts::start_redistributing_parts;
 
 pub fn handle_solve_command(node: &Node, parts: Vec<&str>) {
     if !node.is_leader_waiting_for_problem() {
@@ -58,6 +59,9 @@ pub fn handle_solve_command(node: &Node, parts: Vec<&str>) {
     start_watcher(node.clone());
 
     send_backup_data(node);
+
+    
+    start_redistributing_parts(node);
 }
 
 

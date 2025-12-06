@@ -33,6 +33,70 @@ impl PartOfAProblem {
             state: PartOfAProblemState::NotDistributed,
         }
     }
+
+    /// Helper: convert a string to its index in the given alphabet base
+    fn str_to_index(&self, s: &str) -> usize {
+        let alphabet_size = self.alphabet.len();
+        s.chars().fold(0, |acc, c| {
+            acc * alphabet_size + self.alphabet.find(c).unwrap()
+        })
+    }
+
+    /// Helper: convert an index to a string in the given alphabet base, with minimum length
+    fn index_to_str(&self, mut idx: usize, min_len: usize) -> String {
+        let alphabet: Vec<char> = self.alphabet.chars().collect();
+        let base = alphabet.len();
+        let mut chars = Vec::new();
+        while idx > 0 {
+            chars.push(alphabet[idx % base]);
+            idx /= base;
+        }
+        while chars.len() < min_len {
+            chars.push(alphabet[0]);
+        }
+        chars.reverse();
+        chars.iter().collect()
+    }
+
+    /// Splits this part into two: first part has at most `max_combinations`, second part has the rest.
+    /// Returns (first_part, second_part). If the part has <= max_combinations, returns (self, None).
+    pub fn split_at_combinations(&self, max_combinations: usize) -> (PartOfAProblem, Option<PartOfAProblem>) {
+        let total = self.total_combinations();
+        
+        if total <= max_combinations {
+            return (self.clone(), None);
+        }
+        
+        let min_len = self.start.len().max(self.end.len());
+        let start_idx = self.str_to_index(&self.start);
+        let end_idx = self.str_to_index(&self.end);
+        
+        // Calculate split point
+        let split_idx = start_idx + max_combinations - 1;
+        let split_idx = split_idx.min(end_idx);
+        
+        let first_part = PartOfAProblem {
+            start: self.start.clone(),
+            end: self.index_to_str(split_idx, min_len),
+            alphabet: self.alphabet.clone(),
+            hash: self.hash.clone(),
+            state: PartOfAProblemState::NotDistributed,
+        };
+        
+        let second_part = if split_idx < end_idx {
+            Some(PartOfAProblem {
+                start: self.index_to_str(split_idx + 1, min_len),
+                end: self.end.clone(),
+                alphabet: self.alphabet.clone(),
+                hash: self.hash.clone(),
+                state: PartOfAProblemState::NotDistributed,
+            })
+        } else {
+            None
+        };
+        
+        (first_part, second_part)
+    }
 }
 
 impl Combinable for PartOfAProblem {

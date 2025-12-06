@@ -1,7 +1,8 @@
 pub mod handle_ping_command;
 mod handle_cal_command;
-mod handle_solve_command;
+pub mod handle_solve_command;
 mod handle_stop_command;
+pub mod redistributing_parts;
 
 use crate::utils::node::Node;
 use std::io::{self, BufRead};
