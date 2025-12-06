@@ -185,12 +185,25 @@ impl Node {
     pub fn set_problem(&self, problem: Problem) {
         let problem_part = PartOfAProblem::new_from_problem(&problem, problem.start.clone(), problem.end.clone());
         let mut state = self.state.lock().unwrap();
-        *state = NodeState::Leader {
-            state: LeaderState::Solving {
-                parts: vec![problem_part],
-            },
-            has_backup: Arc::new(Mutex::new(AtomicBool::new(false))),
-        };
+        
+        // Preserve the has_backup flag when transitioning from WaitingForProblem to Solving
+        if let NodeState::Leader { has_backup: existing_has_backup, .. } = &*state {
+            let preserved_has_backup = Arc::clone(existing_has_backup);
+            *state = NodeState::Leader {
+                state: LeaderState::Solving {
+                    parts: vec![problem_part],
+                },
+                has_backup: preserved_has_backup,
+            };
+        } else {
+            // If not already a leader, create a new leader state
+            *state = NodeState::Leader {
+                state: LeaderState::Solving {
+                    parts: vec![problem_part],
+                },
+                has_backup: Arc::new(Mutex::new(AtomicBool::new(false))),
+            };
+        }
     }
 
     pub fn set_problem_parts(&self, parts: Vec<PartOfAProblem>) {

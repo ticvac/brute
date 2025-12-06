@@ -21,6 +21,8 @@ use handle_solution_found_message::handle_solution_found_message;
 use handle_stop_calculating_message::handle_stop_calculating_message;
 use handle_received_backup_data::handle_received_backup_data;
 
+use handle_calculate_power_message::send_calculate_power_messages;
+
 pub fn listen(node: Node) {
     let listener = TcpListener::bind(&node.address).expect("Failed to bind to port");
     // listen loop
@@ -76,6 +78,16 @@ fn handle_new_connection(node: &Node, stream: &mut TcpStream, message: Message) 
     if !node.is_friend(&message.from) {
         println!("Received message from non-friend: {}", message.from);
         node.add_friend(message.from.clone());
+        
+        // If we are a leader, send CalculatePower message to recruit this new friend
+        if node.is_leader() {
+            let node_clone = node.clone();
+            let new_friend_address = message.from.clone();
+            std::thread::spawn(move || {
+                send_calculate_power_messages(&node_clone, &node_clone.address.clone());
+            });
+            println!("Sent CalculatePower message to new friend: {}", new_friend_address);
+        }
     }
     match message.message_type {
         MessageType::Ping => {
