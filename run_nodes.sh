@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # 2000 solve ABCDEFGH 8 8 e107aa44a63ac64338cc632f264b6034218710adfcd28f8782d1aaabeb9d7fe9
+# 2000 solve ABCDEFGH 8 8 1c69f56d1e9fb6ad2dba26bdc1610d9e98b7bee2086c330d2a8ae12ddefe2ac6
 
 # Build the project first
 cargo build
@@ -75,7 +76,7 @@ tail -f $PIPE_2002 | cargo run -- -p 2002 -f 2001,2003,2005 2>&1 | sed 's/^/[Nod
 sleep 0.5
 
 # Run fourth node
-tail -f $PIPE_2003 | cargo run -- -p 2003 -f 2002,2004,2005 --faker 2>&1 | sed 's/^/[Node 2003] /' &
+tail -f $PIPE_2003 | cargo run -- -p 2003 -f 2002,2004,2005 2>&1 | sed 's/^/[Node 2003] /' &
 
 # Wait a bit
 sleep 0.5
