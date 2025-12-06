@@ -29,7 +29,7 @@ pub fn handle_solve_problem_message(node: &Node, message: &Message) {
     
     // Reset the stop flag before starting
     node.set_stop_flag(false);
-    node.transition_to_child_solving();
+    node.transition_to_child_solving(problem_clone.as_part_of_a_problem());
     
     // start solving...
     let node_clone = node.clone();
@@ -49,6 +49,10 @@ pub fn handle_solve_problem_message(node: &Node, message: &Message) {
                 // TODO handle if cant reach parent
             }
             None => {
+                if node_clone.get_stop_flag().load(std::sync::atomic::Ordering::Relaxed) {
+                    println!("Problem solving was stopped before completion.");
+                    return;
+                }
                 println!("Problem could not be solved in the given range.");
                 let message = Message::new(
                     node_clone.address.clone(),

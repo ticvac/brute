@@ -233,6 +233,16 @@ impl Problem {
         }
     }
 
+    pub fn as_part_of_a_problem(&self) -> PartOfAProblem {
+        PartOfAProblem {
+            start: self.start.clone(),
+            end: self.end.clone(),
+            alphabet: self.alphabet.clone(),
+            hash: self.hash.clone(),
+            state: PartOfAProblemState::NotDistributed,
+        }
+    }
+
     pub fn brute_force(&mut self, stop_flag: &AtomicBool) -> Option<String> {
         loop {
             if stop_flag.load(Relaxed) {

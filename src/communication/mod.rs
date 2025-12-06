@@ -61,7 +61,7 @@ pub fn listen(node: Node) {
 }
 
 fn read_message(_stream: &mut TcpStream) -> Option<String> {
-    let mut buffer = [0; 1024];
+    let mut buffer = [0; 65536];  // Increased from 1024 to 64KB
     match _stream.read(&mut buffer) {
         Ok(size) if size > 0 => {
             let message = String::from_utf8_lossy(&buffer[..size]).to_string();

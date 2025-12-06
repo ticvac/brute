@@ -24,12 +24,11 @@ impl LeaderSnapshot {
 }
 
 pub fn create_leader_snapshot(node: &Node) -> LeaderSnapshot {
-    let snapshot = LeaderSnapshot {
+    LeaderSnapshot {
         timestamp: get_current_timestamp(),
         leader_state: node.get_leader_state().clone(),
         children: node.get_children_friends().clone(),
-    };
-    snapshot
+    }
 }
 
 pub fn get_current_timestamp() -> u128 {
