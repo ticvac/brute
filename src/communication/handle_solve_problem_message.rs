@@ -26,11 +26,14 @@ pub fn handle_solve_problem_message(node: &Node, message: &Message) {
         problem_data.3,  // hash
     );
     let mut problem_clone = problem.clone();
+    
+    // Reset the stop flag before starting
+    node.set_stop_flag(false);
     node.transition_to_child_solving(problem);
     
     // start solving...
     let node_clone = node.clone();
-    let stop_flag = std::sync::atomic::AtomicBool::new(false);
+    let stop_flag = node.get_stop_flag();
     println!("Starting to solve problem...");
     std::thread::spawn(move || {
         match problem_clone.brute_force(&stop_flag) {
@@ -56,6 +59,8 @@ pub fn handle_solve_problem_message(node: &Node, message: &Message) {
                 // TODO handle if cant reach parent
             }
         }
+        // TODO transition back to connected (waiting) state
+        node_clone.transition_child_to_connected();
     });
 
 }

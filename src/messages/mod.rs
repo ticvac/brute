@@ -17,6 +17,7 @@ pub enum MessageType {
         solution: String,
     },
     SolutionNotFound,
+    StopSolving,
 }
 
 
@@ -53,6 +54,9 @@ impl Message {
             },
             MessageType::SolutionNotFound => {
                 format!("SOLUTION_NOT_FOUND|{}|{}", self.from, self.to)
+            },
+            MessageType::StopSolving => {
+                format!("STOP_SOLVING|{}|{}", self.from, self.to)
             },
         }
     }
@@ -103,6 +107,7 @@ pub fn deserialize(input: &str) -> Option<Message> {
             MessageType::SolutionFound { solution }
         },
         "SOLUTION_NOT_FOUND" => MessageType::SolutionNotFound,
+        "STOP_SOLVING" => MessageType::StopSolving,
         _ => return None,
     };
 

@@ -1,4 +1,5 @@
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
 use crate::problem::{PartOfAProblem, Problem};
 
 use super::friend::{FriendType, Friend};
@@ -40,6 +41,7 @@ pub struct Node {
     pub communicating: Arc<Mutex<bool>>,
     // k hashes per second
     pub power: u32,
+    pub stop_flag: Arc<AtomicBool>,
 }
 
 impl Node {
@@ -50,6 +52,7 @@ impl Node {
             state: Arc::new(Mutex::new(NodeState::Idle)),
             communicating: Arc::new(Mutex::new(true)),
             power,
+            stop_flag: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -112,6 +115,15 @@ impl Node {
         *state = NodeState::Leader {
             state: LeaderState::WaitingForProblem,
         };
+    }
+
+    pub fn transition_leader_to_waiting(&self) {
+        let mut state = self.state.lock().unwrap();
+        if let NodeState::Leader { state: leader_state } = &mut *state {
+            *leader_state = LeaderState::WaitingForProblem;
+        } else {
+            eprintln!("! Cannot transition to leader waiting: Node is not a Leader.");
+        }
     }
 
     pub fn transition_to_child(&self, leader_address: String) {
@@ -185,6 +197,24 @@ impl Node {
         }).sum()
     }
 
+    pub fn get_child_addresses(&self) -> Vec<String> {
+        let friends = self.friends.lock().unwrap();
+        friends.iter()
+            .filter(|f| matches!(f.friend_type, FriendType::Child { .. }))
+            .map(|f| f.address.clone())
+            .collect()
+    }
+
+    pub fn set_all_children_to_waiting(&self) {
+        use super::friend::FriendTypeChildState;
+        let mut friends = self.friends.lock().unwrap();
+        for friend in friends.iter_mut() {
+            if let FriendType::Child { state, .. } = &mut friend.friend_type {
+                *state = FriendTypeChildState::WaitingForProblemParts;
+            }
+        }
+    }
+
     pub fn set_friend_child_state_solving(&self, friend_address: &str, part: PartOfAProblem) {
         let mut friends = self.friends.lock().unwrap();
         if let Some(friend) = friends.iter_mut().find(|f| f.address == friend_address) {
@@ -199,6 +229,30 @@ impl Node {
             NodeState::Child { state, .. } => matches!(state, ChildState::Connected),
             _ => false,
         }
+    }
+
+    pub fn is_child_solving(&self) -> bool {
+        match &*self.state.lock().unwrap() {
+            NodeState::Child { state, .. } => matches!(state, ChildState::Solving { .. }),
+            _ => false,
+        }
+    }
+
+    pub fn transition_child_to_connected(&self) {
+        let mut state = self.state.lock().unwrap();
+        if let NodeState::Child { state: child_state, .. } = &mut *state {
+            *child_state = ChildState::Connected;
+        } else {
+            eprintln!("! Cannot transition to child connected: Node is not a Child.");
+        }
+    }
+
+    pub fn set_stop_flag(&self, value: bool) {
+        self.stop_flag.store(value, Ordering::SeqCst);
+    }
+
+    pub fn get_stop_flag(&self) -> Arc<AtomicBool> {
+        Arc::clone(&self.stop_flag)
     }
 
     pub fn transition_to_child_solving(&self, part: Problem) {
