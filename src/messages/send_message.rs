@@ -4,6 +4,16 @@ use std::net::TcpStream;
 use std::time::Duration;
 use std::io::{Write, Read};
 
+/// Get the real IP address that would be used to reach the target, with the node's port
+fn get_real_from_address(stream: &TcpStream, node: &Node) -> String {
+    let port = node.address.split(':').last().unwrap_or("8080");
+    if let Ok(local_addr) = stream.local_addr() {
+        format!("{}:{}", local_addr.ip(), port)
+    } else {
+        node.address.clone()
+    }
+}
+
 // if returned None, message sending failed
 pub fn send_message(message: &Message, node: &Node) -> Option<Message> {
     // prevent sending if not communicating
@@ -31,7 +41,15 @@ pub fn send_message(message: &Message, node: &Node) -> Option<Message> {
             let _ = stream.set_write_timeout(Some(Duration::from_secs(3)));
             let _ = stream.set_read_timeout(Some(Duration::from_secs(3)));
 
-            let serialized_message = message.serialize();
+            // Create a new message with the real IP address as the "from" field
+            let real_from_address = get_real_from_address(&stream, node);
+            let real_message = Message::new(
+                real_from_address,
+                message.to.clone(),
+                message.message_type.clone(),
+            );
+
+            let serialized_message = real_message.serialize();
             // sending the message
             if let Err(e) = stream.write_all(serialized_message.as_bytes()) {
                 eprintln!("Failed to write to {}: {}", message.to, e);
