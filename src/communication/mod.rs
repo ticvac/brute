@@ -24,7 +24,11 @@ use handle_received_backup_data::handle_received_backup_data;
 use handle_calculate_power_message::send_calculate_power_messages;
 
 pub fn listen(node: Node) {
-    let listener = TcpListener::bind(&node.address).expect("Failed to bind to port");
+    // Extract port from node address and bind to 0.0.0.0 to listen on all interfaces
+    let port = node.address.split(':').last().expect("Invalid address format");
+    let bind_address = format!("0.0.0.0:{}", port);
+    let listener = TcpListener::bind(&bind_address).expect("Failed to bind to port");
+    println!("Listening on {} (node address: {})", bind_address, node.address);
     // listen loop
     for stream in listener.incoming() {
         // communication
